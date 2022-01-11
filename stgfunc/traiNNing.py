@@ -5,7 +5,7 @@ import os
 import random
 import subprocess
 from pathlib import Path
-from typing import BinaryIO, Dict, List, NamedTuple, cast
+from typing import BinaryIO, Callable, Concatenate, Dict, List, NamedTuple, ParamSpec, cast
 
 import vapoursynth as vs
 from lvsfunc.progress import BarColumn, FPSColumn, Progress, TextColumn, TimeRemainingColumn
@@ -45,19 +45,14 @@ class Datasets(NamedTuple):
     lr: DatasetClip
 
 
-def ensure_ffmpeg_GBR(func):
-    def _to_BGR(self, *args, **kwargs):
+P = ParamSpec('P')
+
+
+def ensure_ffmpeg_GBR(func: Callable[Concatenate[PrepareDataset, P], vs.VideoNode]) -> Callable[Concatenate[PrepareDataset, P], vs.VideoNode]:
+    def _to_BGR(self: PrepareDataset, *args: P.args, **kwargs: P.kwargs) -> vs.VideoNode:
         clip = func(self, *args, **kwargs)
-
-        try:
-            return_gbr = self.is_train if isinstance(
-                self, TraiNNing) else self.trainer.is_train
-        except AttributeError:
-            return_gbr = True
-
-        rgb = clip.resize.Bicubic(
-            format=vs.RGB24, dither_type='error_diffusion')
-
+        return_gbr = self.trainer.is_train
+        rgb = clip.resize.Bicubic(format=vs.RGB24, dither_type='error_diffusion')
         return rgb.std.ShufflePlanes([1, 2, 0], vs.RGB) if return_gbr else rgb
     return _to_BGR
 
